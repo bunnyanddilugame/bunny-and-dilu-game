@@ -85,6 +85,18 @@
             max-width: 96vw;
         }
         canvas { display: block; background: #70c5ce; width: 800px; height: 450px; max-width: 100%; touch-action: none; image-rendering: auto; }
+        .ad-slot {
+            width: min(728px, 96vw);
+            min-height: 90px;
+            margin: 10px auto 6px;
+            padding: 10px;
+            border: 1px dashed rgba(255, 202, 40, 0.45);
+            border-radius: 12px;
+            background: rgba(20, 20, 55, 0.55);
+            color: #aeb7d8;
+            text-align: center;
+            font-size: 12px;
+        }
         .controls-hint {
             margin-top: 10px;
             font-size: 13px;
@@ -251,6 +263,10 @@
         .blessing-output { min-height:60px; max-height:130px; overflow:auto; white-space:pre-wrap; word-break:break-word; background:#0d0d22; border:1px dashed #ffca28; border-radius:10px; padding:10px; color:#fff59d; font:13px Consolas,monospace; direction:ltr; text-align:left; }
         .blessing-result { min-height:42px; margin-top:8px; padding:9px; border-radius:9px; background:#1b3a2a; color:#69f0ae; white-space:pre-wrap; }
         .blessing-help { font-size:12px; color:#b0bec5; line-height:1.5; margin:8px 0; }
+        .auth-status { color:#69f0ae; font-size:13px; margin:6px 0 12px; min-height:20px; }
+        .auth-input { width:100%; margin:6px 0; padding:10px; border-radius:8px; border:1px solid #4fc3f7; background:#12122b; color:#fff; font:inherit; direction:ltr; }
+        .auth-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+        .auth-actions button { flex:1; min-width:130px; }
 
         #touchControls {
             display: none;
@@ -322,7 +338,9 @@
                 text-align: center;
             }
         }
-    </style>
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style id="mobile-scroll-and-code-protection">
 html, body { min-height: 100%; height: auto !important; overflow-y: auto !important; }
@@ -344,6 +362,7 @@ body { overflow-x: hidden !important; -webkit-overflow-scrolling: touch; }
             <button class="icon-btn" id="skinsBtn" onclick="openSkinsMenu()">👕 סקינים</button>
             <button class="icon-btn birthday-song-btn" id="birthdaySongBtn" onclick="playBirthdaySong()">🎶 השמע שיר</button>
             <span class="coins-badge" id="coinsBadge">🪙 0</span>
+            <span class="coins-badge online-room-badge" id="onlineRoomBadge" style="display:none;">🌐 חדר: —</span>
             <button class="icon-btn more-toggle-btn" id="moreToggleBtn" onclick="toggleMobileMenu()">☰ עוד</button>
         </div>
         <div class="bar-more" id="barMore">
@@ -351,6 +370,9 @@ body { overflow-x: hidden !important; -webkit-overflow-scrolling: touch; }
             <button class="icon-btn" id="muteBtn" onclick="toggleMute()">🔊 קול</button>
             <button class="icon-btn" id="achBtn" onclick="openAchievementsMenu()">🏆 השגים</button>
             <button class="icon-btn" id="blessingBtn" onclick="openBlessingMenu()">💌 ברכה</button>
+            <button class="icon-btn" id="leaderboardBtn" onclick="openLeaderboardMenu()">🏅 שיאים</button>
+            <button class="icon-btn" id="chatBtn" onclick="openChatMenu()">💬 הודעות</button>
+            <button class="icon-btn" id="authBtn" onclick="openAuthMenu()">👤 התחברות</button>
             <button class="icon-btn" id="miniGamesBtn" onclick="openMiniMenu()">🎮 מיני-משחקים</button>
             <button class="yt-btn" id="ytBtn" onclick="claimYoutubeBonus()">▶️ הנה הערוץ יוטיוב · +5 יריות</button>
             <span class="cheat-box">
@@ -366,6 +388,9 @@ body { overflow-x: hidden !important; -webkit-overflow-scrolling: touch; }
         <span class="event-progress" id="eventProgress">⭐ נקודות אירוע: 0 · דרגה 1</span>
     </div>
     <div class="rotate-hint">📱↔️ לחוויה נוחה יותר, מומלץ לסובב את הטלפון לאופקי</div>
+    <div id="adSlot" class="ad-slot" aria-label="מקום לפרסומת">
+        מקום לפרסומת — יופעל לאחר אישור AdSense
+    </div>
     <div id="game-container">
         <canvas id="gameCanvas" width="800" height="450"></canvas>
         <div id="touchControls">
@@ -417,6 +442,24 @@ body { overflow-x: hidden !important; -webkit-overflow-scrolling: touch; }
         </div>
     </div>
 
+    <div class="modal" id="authModal">
+        <div class="modal-content">
+            <h2>👤 משתמש ושמירה בענן</h2>
+            <div id="authStatus" class="auth-status">לא מחובר — המשחק נשמר במכשיר בלבד</div>
+            <input id="authEmail" class="auth-input" type="email" autocomplete="email" placeholder="אימייל">
+            <input id="authPassword" class="auth-input" type="password" autocomplete="current-password" placeholder="סיסמה — לפחות 6 תווים">
+            <input id="authDisplayName" class="auth-input" type="text" maxlength="20" autocomplete="nickname" placeholder="שם משתמש לצ׳אט">
+            <div class="auth-actions">
+                <button class="mini-btn" onclick="signUpFromGame()">הרשמה</button>
+                <button class="mini-btn" onclick="signInFromGame()">התחברות</button>
+            </div>
+            <button class="mini-btn" style="border-color:#e57373;" onclick="signOutFromGame()">התנתקות</button>
+            <div id="authMessage" class="modal-hint"></div>
+            <div class="modal-hint">ההתקדמות תישמר בענן רק לאחר התחברות. אל תשתף את הסיסמה שלך.</div>
+            <button class="close-modal-btn" onclick="closeAuthMenu()" style="background:#607d8b;">סגור</button>
+        </div>
+    </div>
+
     <div class="modal" id="miniModal">
         <div class="modal-content wide">
             <h2>🎮 מיני-משחקים</h2>
@@ -458,11 +501,66 @@ body { overflow-x: hidden !important; -webkit-overflow-scrolling: touch; }
                 </select>
             </div>
             <hr style="border:none;border-top:1px solid #333;margin:14px 0;">
-            <button class="mini-btn pvp" onclick="startMiniGame('pvp')">⚔️ באני נגד דילו (PvP)</button>
+            <button class="mini-btn pvp" onclick="startLocalMiniPvp()">⚔️ באני נגד דילו (PvP)</button>
             <p id="miniPvpKeysHint" style="font-size:12px;color:#90a4ae;margin-bottom:12px;">טוען מקשים...</p>
+            <button class="mini-btn" style="border-color:#ce93d8;" onclick="openOnlinePvpMenu()">🌐 PvP מרחוק</button>
+            <button class="mini-btn" style="border-color:#ffca28;" onclick="openOnlineCoopMenu()">🤝 שני שחקנים בכל שלב</button>
             <button class="mini-btn race" onclick="startMiniGame('race')">🏁 מירוץ בשכונה</button>
             <p id="miniRaceKeysHint" style="font-size:12px;color:#90a4ae;">טוען מקשים...</p>
             <button class="close-modal-btn" onclick="closeMiniMenu()" style="background:#607d8b;">סגור</button>
+        </div>
+    </div>
+
+    <div class="modal" id="onlinePvpModal">
+        <div class="modal-content">
+            <h2>🌐 PvP מרחוק</h2>
+            <p class="modal-hint">שחקן אחד יוצר חדר, והשני מצטרף עם אותו קוד.</p>
+            <button class="mini-btn" style="border-color:#69f0ae;" onclick="createOnlinePvpRoom()">➕ צור חדר חדש</button>
+            <input id="onlineRoomCodeInput" class="auth-input" maxlength="6" placeholder="קוד חדר בן 6 תווים" autocomplete="off">
+            <button class="mini-btn" style="border-color:#4fc3f7;" onclick="joinOnlinePvpRoom()">🚪 הצטרף לחדר</button>
+            <div id="onlinePvpCode" class="blessing-output" style="text-align:center;direction:ltr;">עדיין אין חדר</div>
+            <div id="onlinePvpStatus" class="auth-status">מוכן ליצירת חדר</div>
+            <button class="close-modal-btn" onclick="closeOnlinePvpMenu()" style="background:#607d8b;">סגור</button>
+        </div>
+    </div>
+
+    <div class="modal" id="onlineCoopModal">
+        <div class="modal-content">
+            <h2>🤝 שני שחקנים בכל שלב</h2>
+            <p class="modal-hint">צור חדר או הצטרף. במצב הזה הקושי מוכפל כדי שהשלב יתאים לשני שחקנים.</p>
+            <button class="mini-btn" style="border-color:#69f0ae;" onclick="createOnlineCoopRoom()">➕ צור חדר שיתוף</button>
+            <input id="onlineCoopCodeInput" class="auth-input" maxlength="6" placeholder="קוד חדר בן 6 תווים" autocomplete="off">
+            <button class="mini-btn" style="border-color:#4fc3f7;" onclick="joinOnlineCoopRoom()">🚪 הצטרף לחדר</button>
+            <div id="onlineCoopCode" class="blessing-output" style="text-align:center;direction:ltr;">עדיין אין חדר</div>
+            <div id="onlineCoopStatus" class="auth-status">מוכן ליצירת חדר</div>
+            <button class="close-modal-btn" onclick="closeOnlineCoopMenu()" style="background:#607d8b;">סגור</button>
+        </div>
+    </div>
+
+    <div class="modal" id="leaderboardModal">
+        <div class="modal-content wide">
+            <h2>🏅 טבלת שיאים</h2>
+            <div class="setting-row">
+                <span>סינון:</span>
+                <select id="leaderboardDifficulty" onchange="loadLeaderboard()"></select>
+            </div>
+            <div id="leaderboardList" class="blessing-output" style="direction:rtl;text-align:right;min-height:160px;">טוען שיאים...</div>
+            <button class="close-modal-btn" onclick="closeLeaderboardMenu()">סגור</button>
+        </div>
+    </div>
+
+    <div class="modal" id="chatModal">
+        <div class="modal-content wide">
+            <h2>💬 הודעות בין משתמשים</h2>
+            <p class="modal-hint">זהו צ׳אט בתוך האתר בסגנון SMS, לא שליחת הודעת טלפון.</p>
+            <input id="chatTargetName" class="auth-input" maxlength="20" placeholder="שם המשתמש של הנמען">
+            <textarea id="chatMessageInput" class="blessing-textarea" style="min-height:62px;" maxlength="500" placeholder="כתוב הודעה..."></textarea>
+            <div class="blessing-actions">
+                <button class="mini-btn" onclick="sendChatMessage()">📨 שלח</button>
+                <button class="mini-btn" onclick="loadChatMessages()">🔄 רענן</button>
+            </div>
+            <div id="chatList" class="blessing-output" style="direction:rtl;text-align:right;min-height:150px;">התחבר כדי לראות הודעות.</div>
+            <button class="close-modal-btn" onclick="closeChatMenu()" style="background:#607d8b;">סגור</button>
         </div>
     </div>
 
@@ -536,6 +634,37 @@ const __nelaCode = () => __s.d(__s.nela);
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
+        // Supabase: the publishable key is safe for browser use when RLS is enabled.
+        const SUPABASE_URL = 'https://ykiebiunmvvgujkzoakv.supabase.co';
+        const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_BrWRcNaEL0g3lWtAQXG69A_u6UfDX6K';
+        const db = window.supabase?.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+        let cloudUser = null;
+        let cloudSaveTimer = null;
+        let cloudSaveInFlight = false;
+        let cloudSavePending = false;
+        let onlinePvp = {
+            active: false,
+            role: '',
+            roomCode: '',
+            channel: null,
+            remoteInput: { left: false, right: false, jump: false, attack: false },
+            remoteReady: false,
+            receivedState: false,
+            lastInputSent: 0,
+            lastStateSent: 0
+        };
+        let onlineCoop = {
+            active: false,
+            role: '',
+            roomCode: '',
+            channel: null,
+            remoteInput: { left: false, right: false, jump: false, attack: false },
+            lastInputSent: 0,
+            lastStateSent: 0,
+            receivedState: false
+        };
+        let coopPartner = null;
+
         const STATES = {
             INTRO: 'INTRO',
             SELECT: 'SELECT',
@@ -556,6 +685,8 @@ const __nelaCode = () => __s.d(__s.nela);
         let cameraX = 0;
         let keys = {};
         let gameStartTime = 0;
+        let levelStartTime = 0;
+        let levelTimeRecorded = false;
         let finalTimeMs = 0;
         let paused = false;
         let muted = false;
@@ -969,6 +1100,534 @@ const __nelaCode = () => __s.d(__s.nela);
 
         let trailParticles = [];
 
+        function setAuthMessage(message, isError = false) {
+            const el = document.getElementById('authMessage');
+            if (el) {
+                el.textContent = message;
+                el.style.color = isError ? '#ff8a80' : '#69f0ae';
+            }
+        }
+        function updateAuthUI() {
+            const btn = document.getElementById('authBtn');
+            const status = document.getElementById('authStatus');
+            if (cloudUser) {
+                const label = cloudUser.email || 'משתמש מחובר';
+                if (btn) btn.textContent = '👤 ' + label;
+                if (status) status.textContent = 'מחובר: ' + label + ' · השמירה בענן פעילה ✅';
+            } else {
+                if (btn) btn.textContent = '👤 התחברות';
+                if (status) status.textContent = 'לא מחובר — המשחק נשמר במכשיר בלבד';
+            }
+        }
+        function openAuthMenu() {
+            document.getElementById('authModal').style.display = 'flex';
+            if (gameState === STATES.PLAYING || gameState === STATES.MINI_PVP || gameState === STATES.MINI_RACE) paused = true;
+            updateAuthUI();
+            setAuthMessage('');
+        }
+        function closeAuthMenu() {
+            document.getElementById('authModal').style.display = 'none';
+            resumeGameAfterModal();
+        }
+        async function signUpFromGame() {
+            if (!db) return setAuthMessage('Supabase לא נטען. בדוק חיבור לאינטרנט.', true);
+            const email = document.getElementById('authEmail')?.value.trim();
+            const password = document.getElementById('authPassword')?.value;
+            const displayName = document.getElementById('authDisplayName')?.value.trim();
+            if (!email || !password || password.length < 6) {
+                setAuthMessage('הכנס אימייל וסיסמה באורך 6 תווים לפחות.', true);
+                return;
+            }
+            if (displayName) localStorage.setItem('bunnyDiloChatName', displayName);
+            const { error } = await db.auth.signUp({
+                email, password,
+                options: { data: { display_name: displayName || email.split('@')[0] } }
+            });
+            if (error) setAuthMessage('שגיאה בהרשמה: ' + error.message, true);
+            else setAuthMessage('נרשמת! אם נדרש, אשר את האימייל ואז התחבר.');
+        }
+        async function signInFromGame() {
+            if (!db) return setAuthMessage('Supabase לא נטען. בדוק חיבור לאינטרנט.', true);
+            const email = document.getElementById('authEmail')?.value.trim();
+            const password = document.getElementById('authPassword')?.value;
+            if (!email || !password) {
+                setAuthMessage('הכנס אימייל וסיסמה.', true);
+                return;
+            }
+            const { data, error } = await db.auth.signInWithPassword({ email, password });
+            if (error) {
+                setAuthMessage('שגיאה בהתחברות: ' + error.message, true);
+                return;
+            }
+            cloudUser = data.user;
+            await ensureChatProfile();
+            updateAuthUI();
+            await loadCloudSave();
+            setAuthMessage('התחברת בהצלחה והמשחק נטען מהענן ✅');
+        }
+        async function signOutFromGame() {
+            if (db) await db.auth.signOut();
+            cloudUser = null;
+            updateAuthUI();
+            setAuthMessage('התנתקת. המשחק יישמר מקומית.');
+        }
+        function getChatDisplayName() {
+            const typed = document.getElementById('authDisplayName')?.value.trim();
+            return typed || localStorage.getItem('bunnyDiloChatName') || cloudUser?.user_metadata?.display_name || cloudUser?.email?.split('@')[0] || 'שחקן';
+        }
+        async function ensureChatProfile() {
+            if (!cloudUser || !db) return;
+            const displayName = getChatDisplayName().slice(0, 20);
+            localStorage.setItem('bunnyDiloChatName', displayName);
+            const { error } = await db.from('profiles').upsert({ user_id: cloudUser.id, display_name: displayName }, { onConflict: 'user_id' });
+            if (error) console.warn('Chat profile is not ready:', error.message);
+        }
+        function getCloudSavePayload() {
+            return {
+                user_id: cloudUser.id,
+                username: cloudUser.email || null,
+                coins: Math.max(0, Math.floor(Number(playerCoins) || 0)),
+                high_score: Math.max(0, Math.floor(Number(highScore) || 0)),
+                event_points: Math.max(0, Math.floor(Number(eventPoints) || 0)),
+                owned_cosmetics: Array.isArray(ownedCosmetics) ? ownedCosmetics : [],
+                equipped: equipped || {},
+                achievements: Array.isArray(unlockedAchievements) ? unlockedAchievements : [],
+                stats: stats || {},
+                updated_at: new Date().toISOString()
+            };
+        }
+        function queueCloudSave() {
+            if (!cloudUser || !db) return;
+            clearTimeout(cloudSaveTimer);
+            cloudSaveTimer = setTimeout(() => saveCloudSave(), 1200);
+        }
+        async function saveCloudSave(force = false) {
+            if (!cloudUser || !db) return;
+            if (cloudSaveInFlight) {
+                cloudSavePending = true;
+                return;
+            }
+            cloudSaveInFlight = true;
+            const { error } = await db.from('game_saves').upsert(getCloudSavePayload(), { onConflict: 'user_id' });
+            cloudSaveInFlight = false;
+            if (error) {
+                console.error('Cloud save error:', error);
+                if (force) setAuthMessage('שגיאה בשמירת הענן: ' + error.message, true);
+            }
+            if (cloudSavePending) {
+                cloudSavePending = false;
+                queueCloudSave();
+            }
+        }
+        function applyCloudSave(data) {
+            if (data.coins != null) playerCoins = Number(data.coins) || 0;
+            if (data.high_score != null) highScore = Number(data.high_score) || 0;
+            if (data.event_points != null) eventPoints = Number(data.event_points) || 0;
+            if (Array.isArray(data.owned_cosmetics)) ownedCosmetics = data.owned_cosmetics;
+            if (data.equipped) equipped = { ...equipped, ...data.equipped };
+            if (Array.isArray(data.achievements)) unlockedAchievements = data.achievements;
+            if (data.stats) stats = { ...stats, ...data.stats };
+            saveGame(false);
+            applyLoadedUI();
+        }
+        async function loadCloudSave() {
+            if (!cloudUser || !db) return;
+            const { data, error } = await db.from('game_saves').select('*').eq('user_id', cloudUser.id).maybeSingle();
+            if (error) {
+                setAuthMessage('שגיאה בטעינת שמירה: ' + error.message, true);
+                return;
+            }
+            if (data) applyCloudSave(data);
+            else await saveCloudSave(true);
+        }
+        async function restoreCloudSaveIfLoggedIn() {
+            if (!db) return;
+            const { data } = await db.auth.getSession();
+            cloudUser = data?.session?.user || null;
+            updateAuthUI();
+            if (cloudUser) {
+                await ensureChatProfile();
+                await loadCloudSave();
+            }
+        }
+
+        function setOnlinePvpStatus(message, isError = false) {
+            const el = document.getElementById('onlinePvpStatus');
+            if (el) {
+                el.textContent = message;
+                el.style.color = isError ? '#ff8a80' : '#69f0ae';
+            }
+        }
+        function updateOnlineRoomBadge() {
+            const el = document.getElementById('onlineRoomBadge');
+            if (!el) return;
+            const room = onlinePvp.active ? onlinePvp : onlineCoop;
+            el.style.display = room.active && room.roomCode ? 'inline-block' : 'none';
+            el.textContent = room.active && room.roomCode ? '🌐 חדר: ' + room.roomCode : '🌐 חדר: —';
+        }
+        function randomOnlineRoomCode() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+        }
+        function openOnlinePvpMenu() {
+            document.getElementById('onlinePvpModal').style.display = 'flex';
+            if (gameState === STATES.PLAYING || gameState === STATES.MINI_PVP || gameState === STATES.MINI_RACE) paused = true;
+            setOnlinePvpStatus('מוכן ליצירת חדר');
+        }
+        function closeOnlinePvpMenu() {
+            document.getElementById('onlinePvpModal').style.display = 'none';
+            resumeGameAfterModal();
+        }
+        async function leaveOnlinePvpRoom() {
+            if (onlinePvp.channel && db) {
+                try { await db.removeChannel(onlinePvp.channel); } catch (e) { /* already closed */ }
+            }
+            onlinePvp = {
+                active: false, role: '', roomCode: '', channel: null,
+                remoteInput: { left: false, right: false, jump: false, attack: false },
+                remoteReady: false, receivedState: false, lastInputSent: 0, lastStateSent: 0
+            };
+            updateOnlineRoomBadge();
+        }
+        async function connectOnlinePvpChannel(roomCode, role) {
+            if (!db) {
+                setOnlinePvpStatus('Supabase לא נטען. בדוק אינטרנט.', true);
+                return false;
+            }
+            const channel = db.channel('bunnydilo-online-pvp-' + roomCode, { config: { broadcast: { ack: true } } });
+            onlinePvp.channel = channel;
+            channel.on('broadcast', { event: 'hello' }, ({ payload }) => {
+                if (onlinePvp.role === 'host') {
+                    onlinePvp.remoteReady = true;
+                    showCodeToast('🌐 שחקן שני הצטרף לחדר!');
+                    sendOnlinePvpState(true);
+                }
+            });
+            channel.on('broadcast', { event: 'input' }, ({ payload }) => {
+                if (onlinePvp.role === 'host' && payload?.input) onlinePvp.remoteInput = payload.input;
+            });
+            channel.on('broadcast', { event: 'state' }, ({ payload }) => {
+                if (onlinePvp.role !== 'guest' || !payload) return;
+                onlinePvp.receivedState = true;
+                if (p1 && payload.p1) Object.assign(p1, payload.p1);
+                if (p2 && payload.p2) Object.assign(p2, payload.p2);
+                projectiles = Array.isArray(payload.projectiles) ? payload.projectiles : [];
+                if (payload.winner) miniWinner = payload.winner;
+                if (payload.finished) {
+                    gameState = STATES.MINI_END;
+                    if (miniWinner) recordMiniMatch('pvp');
+                }
+            });
+            const subscribed = await new Promise(resolve => {
+                let done = false;
+                const finish = value => { if (!done) { done = true; resolve(value); } };
+                channel.subscribe(status => {
+                    if (status === 'SUBSCRIBED') finish(true);
+                    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') finish(false);
+                });
+                setTimeout(() => finish(false), 8000);
+            });
+            if (!subscribed) {
+                setOnlinePvpStatus('לא ניתן להתחבר לחדר. נסה שוב.', true);
+                return false;
+            }
+            return true;
+        }
+        async function createOnlinePvpRoom() {
+            await leaveOnlinePvpRoom();
+            const code = randomOnlineRoomCode();
+            onlinePvp.active = true;
+            onlinePvp.role = 'host';
+            onlinePvp.roomCode = code;
+            updateOnlineRoomBadge();
+            const codeEl = document.getElementById('onlinePvpCode');
+            if (codeEl) codeEl.textContent = code;
+            setOnlinePvpStatus('מתחבר לחדר ' + code + '...');
+            if (!await connectOnlinePvpChannel(code, 'host')) { await leaveOnlinePvpRoom(); return; }
+            startMiniGame('pvp');
+            closeOnlinePvpMenu();
+            showCodeToast('🌐 חדר ' + code + ' נוצר — שלח את הקוד לשחקן השני');
+        }
+        async function joinOnlinePvpRoom() {
+            const input = document.getElementById('onlineRoomCodeInput');
+            const code = (input?.value || '').trim().toUpperCase();
+            if (!/^[A-Z0-9]{6}$/.test(code)) {
+                setOnlinePvpStatus('הכנס קוד חדר בן 6 תווים.', true);
+                return;
+            }
+            await leaveOnlinePvpRoom();
+            onlinePvp.active = true;
+            onlinePvp.role = 'guest';
+            onlinePvp.roomCode = code;
+            updateOnlineRoomBadge();
+            setOnlinePvpStatus('מצטרף לחדר ' + code + '...');
+            if (!await connectOnlinePvpChannel(code, 'guest')) { await leaveOnlinePvpRoom(); return; }
+            startMiniGame('pvp');
+            closeOnlinePvpMenu();
+            await onlinePvp.channel.send({ type: 'broadcast', event: 'hello', payload: { joinedAt: Date.now() } });
+            showCodeToast('🌐 הצטרפת לחדר ' + code);
+        }
+        function getOnlineInput(role) {
+            if (role === 'p1') return {
+                left: !!keys[miniBinds.p1Left], right: !!keys[miniBinds.p1Right],
+                jump: !!keys[miniBinds.p1Jump], attack: !!keys[miniBinds.p1Attack]
+            };
+            return {
+                left: !!keys[miniBinds.p2Left], right: !!keys[miniBinds.p2Right],
+                jump: !!keys[miniBinds.p2Jump], attack: !!keys[miniBinds.p2Attack]
+            };
+        }
+        function sendOnlinePvpInput(input, now) {
+            if (!onlinePvp.channel || now - onlinePvp.lastInputSent < 40) return;
+            onlinePvp.lastInputSent = now;
+            onlinePvp.channel.send({ type: 'broadcast', event: 'input', payload: { input } });
+        }
+        function sendOnlinePvpState(force = false) {
+            if (!onlinePvp.channel || !p1 || !p2) return;
+            const now = performance.now();
+            if (!force && now - onlinePvp.lastStateSent < 40) return;
+            onlinePvp.lastStateSent = now;
+            onlinePvp.channel.send({ type: 'broadcast', event: 'state', payload: {
+                p1: { ...p1 }, p2: { ...p2 }, projectiles: projectiles.map(p => ({ ...p })),
+                winner: miniWinner, finished: gameState === STATES.MINI_END
+            } });
+        }
+        async function startLocalMiniPvp() {
+            if (onlinePvp.active) await leaveOnlinePvpRoom();
+            startMiniGame('pvp');
+        }
+        function setOnlineCoopStatus(message, isError = false) {
+            const el = document.getElementById('onlineCoopStatus');
+            if (el) {
+                el.textContent = message;
+                el.style.color = isError ? '#ff8a80' : '#69f0ae';
+            }
+        }
+        function openOnlineCoopMenu() {
+            document.getElementById('miniModal').style.display = 'none';
+            document.getElementById('onlineCoopModal').style.display = 'flex';
+            if (gameState === STATES.PLAYING || gameState === STATES.MINI_PVP || gameState === STATES.MINI_RACE) paused = true;
+            setOnlineCoopStatus('מוכן ליצירת חדר');
+        }
+        function closeOnlineCoopMenu() {
+            document.getElementById('onlineCoopModal').style.display = 'none';
+            resumeGameAfterModal();
+        }
+        async function leaveOnlineCoopRoom() {
+            if (onlineCoop.channel && db) {
+                try { await db.removeChannel(onlineCoop.channel); } catch (e) { /* already closed */ }
+            }
+            onlineCoop = {
+                active: false, role: '', roomCode: '', channel: null,
+                remoteInput: { left: false, right: false, jump: false, attack: false },
+                lastInputSent: 0, lastStateSent: 0, receivedState: false
+            };
+            coopPartner = null;
+            updateOnlineRoomBadge();
+        }
+        function getCoopInput() {
+            return onlineCoop.role === 'host' ? {
+                left: !!keys[keyBinds.left], right: !!keys[keyBinds.right],
+                jump: !!keys[keyBinds.jump], attack: !!keys[keyBinds.attack]
+            } : {
+                left: !!keys[miniBinds.p2Left], right: !!keys[miniBinds.p2Right],
+                jump: !!keys[miniBinds.p2Jump], attack: !!keys[miniBinds.p2Attack]
+            };
+        }
+        function sendOnlineCoopInput(input) {
+            const now = performance.now();
+            if (!onlineCoop.channel || now - onlineCoop.lastInputSent < 40) return;
+            onlineCoop.lastInputSent = now;
+            onlineCoop.channel.send({ type: 'broadcast', event: 'coop_input', payload: { input } });
+        }
+        function sendOnlineCoopState(force = false) {
+            if (!onlineCoop.channel || !player || !coopPartner) return;
+            const now = performance.now();
+            if (!force && now - onlineCoop.lastStateSent < 40) return;
+            onlineCoop.lastStateSent = now;
+            onlineCoop.channel.send({ type: 'broadcast', event: 'coop_state', payload: {
+                level: currentLevelIndex, difficulty, gameState,
+                player: { ...player }, partner: { ...coopPartner }, cameraX,
+                score: player.score, finished: gameState === STATES.VICTORY || gameState === STATES.GAME_OVER
+            } });
+        }
+        async function connectOnlineCoopChannel(roomCode) {
+            if (!db) { setOnlineCoopStatus('Supabase לא נטען. בדוק אינטרנט.', true); return false; }
+            const channel = db.channel('bunnydilo-online-coop-' + roomCode, { config: { broadcast: { ack: true } } });
+            onlineCoop.channel = channel;
+            channel.on('broadcast', { event: 'coop_hello' }, () => {
+                if (onlineCoop.role === 'host') sendOnlineCoopState(true);
+            });
+            channel.on('broadcast', { event: 'coop_input' }, ({ payload }) => {
+                if (onlineCoop.role === 'host' && payload?.input) onlineCoop.remoteInput = payload.input;
+            });
+            channel.on('broadcast', { event: 'coop_state' }, ({ payload }) => {
+                if (onlineCoop.role !== 'guest' || !payload) return;
+                onlineCoop.receivedState = true;
+                if (payload.level !== currentLevelIndex) {
+                    currentLevelIndex = payload.level;
+                    loadLevel(currentLevelIndex);
+                }
+                if (payload.player) Object.assign(player, payload.player);
+                if (payload.partner) coopPartner = { ...payload.partner };
+                cameraX = Number(payload.cameraX) || 0;
+                gameState = payload.gameState || STATES.PLAYING;
+            });
+            const subscribed = await new Promise(resolve => {
+                let done = false;
+                const finish = value => { if (!done) { done = true; resolve(value); } };
+                channel.subscribe(status => {
+                    if (status === 'SUBSCRIBED') finish(true);
+                    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') finish(false);
+                });
+                setTimeout(() => finish(false), 8000);
+            });
+            if (!subscribed) { setOnlineCoopStatus('לא ניתן להתחבר לחדר.', true); return false; }
+            return true;
+        }
+        async function createOnlineCoopRoom() {
+            await leaveOnlineCoopRoom();
+            const code = randomOnlineRoomCode();
+            onlineCoop.active = true; onlineCoop.role = 'host'; onlineCoop.roomCode = code;
+            updateOnlineRoomBadge();
+            const codeEl = document.getElementById('onlineCoopCode');
+            if (codeEl) codeEl.textContent = code;
+            setOnlineCoopStatus('יוצר חדר ' + code + '...');
+            if (!await connectOnlineCoopChannel(code)) { await leaveOnlineCoopRoom(); return; }
+            resetGame();
+            closeOnlineCoopMenu();
+            showCodeToast('🤝 חדר שיתוף ' + code + ' נוצר — שלח את הקוד');
+        }
+        async function joinOnlineCoopRoom() {
+            const code = (document.getElementById('onlineCoopCodeInput')?.value || '').trim().toUpperCase();
+            if (!/^[A-Z0-9]{6}$/.test(code)) { setOnlineCoopStatus('הכנס קוד בן 6 תווים.', true); return; }
+            await leaveOnlineCoopRoom();
+            onlineCoop.active = true; onlineCoop.role = 'guest'; onlineCoop.roomCode = code;
+            updateOnlineRoomBadge();
+            setOnlineCoopStatus('מצטרף לחדר ' + code + '...');
+            if (!await connectOnlineCoopChannel(code)) { await leaveOnlineCoopRoom(); return; }
+            resetGame();
+            closeOnlineCoopMenu();
+            await onlineCoop.channel.send({ type: 'broadcast', event: 'coop_hello', payload: { joinedAt: Date.now() } });
+            showCodeToast('🤝 הצטרפת לחדר ' + code);
+        }
+        function formatLeaderboardTime(ms) {
+            const value = Math.max(0, Number(ms) || 0);
+            return (value / 1000).toFixed(2) + ' שניות';
+        }
+        function openLeaderboardMenu() {
+            const modal = document.getElementById('leaderboardModal');
+            const select = document.getElementById('leaderboardDifficulty');
+            if (!select.options.length) {
+                Object.entries(DIFFICULTY_META).forEach(([key, meta]) => {
+                    const option = document.createElement('option');
+                    option.value = key; option.textContent = meta.label;
+                    select.appendChild(option);
+                });
+            }
+            modal.style.display = 'flex';
+            if (gameState === STATES.PLAYING) paused = true;
+            loadLeaderboard();
+        }
+        function closeLeaderboardMenu() {
+            document.getElementById('leaderboardModal').style.display = 'none';
+            resumeGameAfterModal();
+        }
+        async function loadLeaderboard() {
+            const list = document.getElementById('leaderboardList');
+            if (!list) return;
+            if (!db) { list.textContent = 'Supabase לא נטען.'; return; }
+            list.textContent = 'טוען שיאים...';
+            const difficultyFilter = document.getElementById('leaderboardDifficulty')?.value || difficulty;
+            const { data, error } = await db.from('level_leaderboard')
+                .select('level_key, level_name, player_name, time_ms, mode, created_at')
+                .eq('difficulty', difficultyFilter)
+                .order('time_ms', { ascending: true })
+                .limit(100);
+            if (error) { list.textContent = 'לא ניתן לטעון שיאים: ' + error.message; return; }
+            list.innerHTML = '';
+            if (!data?.length) { list.textContent = 'עדיין אין שיאים במצב הזה.'; return; }
+            const bestByLevel = new Map();
+            data.forEach(row => { if (!bestByLevel.has(row.level_key)) bestByLevel.set(row.level_key, row); });
+            [...bestByLevel.values()].forEach((row, index) => {
+                const line = document.createElement('div');
+                line.style.padding = '7px 0';
+                line.style.borderBottom = '1px solid rgba(255,255,255,.12)';
+                line.textContent = `#${index + 1} · ${row.level_name || row.level_key} · ${row.player_name || 'שחקן'} · ${formatLeaderboardTime(row.time_ms)} · ${row.mode === 'coop' ? '🤝' : '👤'}`;
+                list.appendChild(line);
+            });
+        }
+        async function recordLevelTime() {
+            if (levelTimeRecorded || !cloudUser || !db || !levelStartTime) return;
+            levelTimeRecorded = true;
+            const lvl = levels[currentLevelIndex];
+            const { error } = await db.from('level_leaderboard').insert({
+                user_id: cloudUser.id,
+                player_name: getChatDisplayName(),
+                level_key: difficulty + '-' + currentLevelIndex,
+                level_name: lvl?.name || ('שלב ' + (currentLevelIndex + 1)),
+                difficulty,
+                mode: onlineCoop.active ? 'coop' : 'solo',
+                time_ms: Math.max(1, Date.now() - levelStartTime)
+            });
+            if (error) console.warn('Leaderboard save failed:', error.message);
+        }
+        let chatPollTimer = null;
+        function openChatMenu() {
+            document.getElementById('chatModal').style.display = 'flex';
+            if (gameState === STATES.PLAYING) paused = true;
+            loadChatMessages();
+            clearInterval(chatPollTimer);
+            chatPollTimer = setInterval(loadChatMessages, 5000);
+        }
+        function closeChatMenu() {
+            document.getElementById('chatModal').style.display = 'none';
+            clearInterval(chatPollTimer);
+            chatPollTimer = null;
+            resumeGameAfterModal();
+        }
+        async function loadChatMessages() {
+            const list = document.getElementById('chatList');
+            if (!list) return;
+            if (!cloudUser || !db) { list.textContent = 'יש להתחבר כדי להשתמש בהודעות.'; return; }
+            const { data, error } = await db.from('direct_messages')
+                .select('sender_id, recipient_id, body, created_at')
+                .or(`sender_id.eq.${cloudUser.id},recipient_id.eq.${cloudUser.id}`)
+                .order('created_at', { ascending: true }).limit(100);
+            if (error) { list.textContent = 'לא ניתן לטעון הודעות: ' + error.message; return; }
+            list.innerHTML = '';
+            if (!data?.length) { list.textContent = 'אין הודעות עדיין.'; return; }
+            data.forEach(message => {
+                const item = document.createElement('div');
+                item.style.padding = '7px';
+                item.style.margin = '5px 0';
+                item.style.borderRadius = '8px';
+                item.style.background = message.sender_id === cloudUser.id ? '#263238' : '#1b3a2a';
+                const who = message.sender_id === cloudUser.id ? 'אני' : 'משתמש';
+                item.textContent = `${who}: ${message.body}`;
+                list.appendChild(item);
+            });
+            list.scrollTop = list.scrollHeight;
+        }
+        async function sendChatMessage() {
+            const targetName = document.getElementById('chatTargetName')?.value.trim();
+            const body = document.getElementById('chatMessageInput')?.value.trim();
+            if (!cloudUser || !db) { setAuthMessage('התחבר כדי לשלוח הודעות.', true); return; }
+            if (!targetName || !body) return;
+            const { data: target, error: findError } = await db.from('profiles').select('user_id').eq('display_name', targetName).maybeSingle();
+            if (findError || !target) { alert('לא נמצא משתמש בשם הזה.'); return; }
+            const { error } = await db.from('direct_messages').insert({ sender_id: cloudUser.id, recipient_id: target.user_id, body: body.slice(0, 500) });
+            if (error) { alert('שליחת ההודעה נכשלה: ' + error.message); return; }
+            document.getElementById('chatMessageInput').value = '';
+            await loadChatMessages();
+        }
+        if (db) {
+            db.auth.onAuthStateChange((_event, session) => {
+                cloudUser = session?.user || null;
+                updateAuthUI();
+            });
+        }
+
         function loadSave() {
             try {
                 const raw = localStorage.getItem(SAVE_KEY);
@@ -1015,6 +1674,7 @@ const __nelaCode = () => __s.d(__s.nela);
                 }));
             } catch (e) { /* quota */ }
             updateCoinsBadge();
+            queueCloudSave();
         }
         function applyLoadedUI() {
             updateCoinsBadge();
@@ -2490,6 +3150,21 @@ const __nelaCode = () => __s.d(__s.nela);
                 } else if (document.getElementById('blessingModal').style.display === 'flex') {
                     closeBlessingMenu();
                     if (gameState === STATES.PLAYING) paused = false;
+                } else if (document.getElementById('authModal').style.display === 'flex') {
+                    closeAuthMenu();
+                    if (gameState === STATES.PLAYING) paused = false;
+                } else if (document.getElementById('onlinePvpModal').style.display === 'flex') {
+                    closeOnlinePvpMenu();
+                    if (gameState === STATES.PLAYING) paused = false;
+                } else if (document.getElementById('onlineCoopModal').style.display === 'flex') {
+                    closeOnlineCoopMenu();
+                    if (gameState === STATES.PLAYING) paused = false;
+                } else if (document.getElementById('leaderboardModal').style.display === 'flex') {
+                    closeLeaderboardMenu();
+                    if (gameState === STATES.PLAYING) paused = false;
+                } else if (document.getElementById('chatModal').style.display === 'flex') {
+                    closeChatMenu();
+                    if (gameState === STATES.PLAYING) paused = false;
                 } else if (gameState === STATES.PLAYING || gameState === STATES.MINI_PVP || gameState === STATES.MINI_RACE) {
                     togglePause();
                 }
@@ -2602,6 +3277,7 @@ const __nelaCode = () => __s.d(__s.nela);
             resetGame();
         }
         function goToHome() {
+            if (onlineCoop.active) leaveOnlineCoopRoom();
             gameState = STATES.SELECT;
             currentLevelIndex = 0;
             projectiles = []; particles = []; fireworks = []; scorePopups = []; muzzleFlashes = [];
@@ -2641,11 +3317,25 @@ const __nelaCode = () => __s.d(__s.nela);
         }
         function loadLevel(index) {
             const lvl = levels[index];
+            levelStartTime = Date.now();
+            levelTimeRecorded = false;
             player.x = 80; player.y = 300; player.prevY = 300; player.vx = 0; player.vy = 0; player.grounded = false;
+            if (onlineCoop.active) {
+                coopPartner = coopPartner || { x: 140, y: 300, w: 36, h: 48, vx: 0, vy: 0, grounded: false, facing: 1, isAttacking: false, attackTimer: 0, invulnerableTimer: 0, animFrame: 0, prevY: 300, char: 'dilo', name: 'דילו' };
+                coopPartner.x = 140; coopPartner.y = 300; coopPartner.vx = 0; coopPartner.vy = 0;
+            }
             projectiles = []; particles = []; fireworks = []; scorePopups = []; muzzleFlashes = []; trailParticles = []; cameraX = 0;
             if (lvl.carrots) lvl.carrots.forEach(c => c.collected = false);
-            if (lvl.enemies) lvl.enemies.forEach(e => { e.hp = 1; e.shootTimer = Math.floor(Math.random() * 40); e.hasShot = false; });
+            if (lvl.enemies) lvl.enemies.forEach(e => {
+                e.baseVx = e.baseVx ?? e.vx;
+                e.vx = e.baseVx * (onlineCoop.active ? 2 : 1);
+                e.hp = 1;
+                e.shootTimer = Math.floor(Math.random() * 40);
+                e.hasShot = false;
+            });
             if (lvl.boss) {
+                lvl.boss.baseMaxHp = lvl.boss.baseMaxHp ?? lvl.boss.maxHp;
+                lvl.boss.maxHp = lvl.boss.baseMaxHp * (onlineCoop.active ? 2 : 1);
                 lvl.boss.hp = lvl.boss.maxHp;
                 lvl.boss.x = lvl.boss.startX != null ? lvl.boss.startX : (lvl.boss.type === 'raz' ? 800 : 700);
                 lvl.boss.y = lvl.boss.startY != null ? lvl.boss.startY : (lvl.boss.type === 'raz' ? 280 : 250);
@@ -2709,6 +3399,7 @@ const __nelaCode = () => __s.d(__s.nela);
             playSound('cut'); playSound('victory');
         }
         function startVictoryAnim() {
+            recordLevelTime();
             victoryAnimTimer = 0;
             finalTimeMs = Date.now() - gameStartTime;
             gameState = STATES.VICTORY_ANIM;
@@ -2780,6 +3471,10 @@ const __nelaCode = () => __s.d(__s.nela);
         }
 
         function updateMiniPvp() {
+            if (onlinePvp.active) {
+                updateOnlineMiniPvp();
+                return;
+            }
             // P1 controls: A/D Space K
             updateMiniPlayer(p1, miniBinds.p1Left, miniBinds.p1Right, miniBinds.p1Jump, miniBinds.p1Attack);
             // P2 controls: arrows + L
@@ -2840,6 +3535,131 @@ const __nelaCode = () => __s.d(__s.nela);
                 particles[i].life--;
                 if (particles[i].life <= 0) particles.splice(i, 1);
             }
+        }
+
+        function updateMiniPlayerFromInput(p, input) {
+            let moving = false;
+            if (input.right) { p.vx = p.speed; p.facing = 1; moving = true; }
+            else if (input.left) { p.vx = -p.speed; p.facing = -1; moving = true; }
+            if (!moving) { p.vx *= 0.5; if (Math.abs(p.vx) < 0.1) p.vx = 0; }
+            if (input.jump && p.grounded) { p.vy = p.jumpForce; p.grounded = false; playSound('jump'); }
+            if (input.attack && !p.isAttacking) {
+                p.isAttacking = true;
+                p.attackTimer = 18;
+                projectiles.push({
+                    x: p.facing === 1 ? p.x + p.w : p.x,
+                    y: p.y + 22, vx: p.facing * 9, vy: 0, r: 7,
+                    owner: p === p1 ? 1 : 2
+                });
+                playSound('shoot');
+            }
+        }
+
+        function updateOnlineMiniPvp() {
+            const now = performance.now();
+            if (onlinePvp.role === 'guest') {
+                sendOnlinePvpInput(getOnlineInput('p2'), now);
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    particles[i].x += particles[i].vx;
+                    particles[i].y += particles[i].vy;
+                    particles[i].life--;
+                    if (particles[i].life <= 0) particles.splice(i, 1);
+                }
+                return;
+            }
+
+            updateMiniPlayerFromInput(p1, getOnlineInput('p1'));
+            updateMiniPlayerFromInput(p2, onlinePvp.remoteInput);
+
+            const groundY = 400;
+            [p1, p2].forEach(p => {
+                p.prevY = p.y;
+                p.vy += 0.55;
+                p.x += p.vx;
+                p.y += p.vy;
+                p.grounded = false;
+                if (p.y + p.h >= groundY && p.prevY + p.h <= groundY + 2 && p.vy >= 0) {
+                    p.y = groundY - p.h;
+                    p.vy = 0;
+                    p.grounded = true;
+                }
+                if (p.x < 20) p.x = 20;
+                if (p.x > 780 - p.w) p.x = 780 - p.w;
+                if (p.attackTimer > 0) { p.attackTimer--; if (p.attackTimer === 0) p.isAttacking = false; }
+                if (p.invulnerableTimer > 0) p.invulnerableTimer--;
+                p.animFrame += 0.15;
+            });
+
+            checkMiniHit(p1, p2);
+            checkMiniHit(p2, p1);
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const pr = projectiles[i];
+                pr.x += pr.vx;
+                pr.y += pr.vy;
+                const box = { x: pr.x - pr.r, y: pr.y - pr.r, w: pr.r * 2, h: pr.r * 2 };
+                if (pr.owner === 1 && checkCollision(box, p2) && p2.invulnerableTimer <= 0) {
+                    p2.hp--; p2.invulnerableTimer = 40;
+                    createParticles(p2.x + 18, p2.y + 20, '#e91e63', 10);
+                    playSound('damage'); projectiles.splice(i, 1);
+                    if (p2.hp <= 0) { miniWinner = 'באני'; gameState = STATES.MINI_END; playSound('victory'); recordMiniMatch('pvp'); }
+                    continue;
+                }
+                if (pr.owner === 2 && checkCollision(box, p1) && p1.invulnerableTimer <= 0) {
+                    p1.hp--; p1.invulnerableTimer = 40;
+                    createParticles(p1.x + 18, p1.y + 20, '#e91e63', 10);
+                    playSound('damage'); projectiles.splice(i, 1);
+                    if (p1.hp <= 0) { miniWinner = 'דילו'; gameState = STATES.MINI_END; playSound('victory'); recordMiniMatch('pvp'); }
+                    continue;
+                }
+                if (pr.x < -20 || pr.x > 820) projectiles.splice(i, 1);
+            }
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].x += particles[i].vx;
+                particles[i].y += particles[i].vy;
+                particles[i].life--;
+                if (particles[i].life <= 0) particles.splice(i, 1);
+            }
+            sendOnlinePvpState(gameState === STATES.MINI_END);
+        }
+
+        function updateCoopPartner(lvl) {
+            if (!coopPartner || onlineCoop.role !== 'host') return;
+            const input = onlineCoop.remoteInput || {};
+            let moving = false;
+            if (input.right) { coopPartner.vx = 4.8; coopPartner.facing = 1; moving = true; }
+            else if (input.left) { coopPartner.vx = -4.8; coopPartner.facing = -1; moving = true; }
+            if (!moving) { coopPartner.vx *= 0.5; if (Math.abs(coopPartner.vx) < 0.1) coopPartner.vx = 0; }
+            if (input.jump && coopPartner.grounded) { coopPartner.vy = -13; coopPartner.grounded = false; }
+            if (input.attack && !coopPartner.isAttacking) {
+                coopPartner.isAttacking = true;
+                coopPartner.attackTimer = 18;
+                projectiles.push({
+                    x: coopPartner.facing === 1 ? coopPartner.x + coopPartner.w : coopPartner.x,
+                    y: coopPartner.y + 22, vx: coopPartner.facing * 9, vy: 0, r: 7,
+                    isPlayer: true, coopOwner: true
+                });
+            }
+            coopPartner.prevY = coopPartner.y;
+            coopPartner.vy += 0.55;
+            coopPartner.x += coopPartner.vx;
+            coopPartner.y += coopPartner.vy;
+            coopPartner.grounded = false;
+            lvl.platforms.forEach(platform => {
+                const prevBottom = coopPartner.prevY + coopPartner.h;
+                if (coopPartner.x + coopPartner.w > platform.x && coopPartner.x < platform.x + platform.w &&
+                    coopPartner.y + coopPartner.h >= platform.y && prevBottom <= platform.y + 1 && coopPartner.vy >= 0) {
+                    coopPartner.y = platform.y - coopPartner.h;
+                    coopPartner.vy = 0;
+                    coopPartner.grounded = true;
+                }
+            });
+            if (coopPartner.y > 500) { coopPartner.x = player.x + 60; coopPartner.y = 200; coopPartner.vy = 0; }
+            coopPartner.x = Math.max(0, Math.min(lvl.width - coopPartner.w, coopPartner.x));
+            if (coopPartner.attackTimer > 0) {
+                coopPartner.attackTimer--;
+                if (coopPartner.attackTimer === 0) coopPartner.isAttacking = false;
+            }
+            coopPartner.animFrame += 0.15;
         }
 
         function updateMiniPlayer(p, leftKey, rightKey, jumpKey, attackKey) {
@@ -2933,10 +3753,15 @@ const __nelaCode = () => __s.d(__s.nela);
 
             if (gameState === STATES.MINI_PVP) { updateMiniPvp(); return; }
             if (gameState === STATES.MINI_RACE) { updateMiniRace(); return; }
+            if (onlineCoop.active && onlineCoop.role === 'guest') {
+                sendOnlineCoopInput(getCoopInput());
+                return;
+            }
 
             if (gameState === STATES.BOSS_KILL_ANIM) {
                 killAnimTimer++;
                 if (killAnimTimer > 180) {
+                    recordLevelTime();
                     const next = getNextLevelIndex();
                     if (next === -1) {
                         startVictoryAnim();
@@ -3004,6 +3829,7 @@ const __nelaCode = () => __s.d(__s.nela);
 
             const lvl = levels[currentLevelIndex];
             const now = Date.now();
+            if (onlineCoop.active && onlineCoop.role === 'host') updateCoopPartner(lvl);
 
             let moving = false;
             if (keys[keyBinds.right]) { player.vx = player.speed; player.facing = 1; moving = true; }
@@ -3121,7 +3947,8 @@ const __nelaCode = () => __s.d(__s.nela);
 
                     if (difficulty === 'hard' || difficulty === 'v10' || difficulty === 'nightmare' || (difficulty === 'impossible' && !e.hasShot) || (difficulty === 'birthday' && !e.hasShot)) {
                         e.shootTimer = (e.shootTimer || 0) + 1;
-                        const interval = difficulty === 'nightmare' ? 28 : (difficulty === 'v10' ? 35 : (difficulty === 'impossible' ? 50 : (difficulty === 'birthday' ? 72 : 90)));
+                        const baseInterval = difficulty === 'nightmare' ? 28 : (difficulty === 'v10' ? 35 : (difficulty === 'impossible' ? 50 : (difficulty === 'birthday' ? 72 : 90)));
+                        const interval = onlineCoop.active ? Math.max(12, Math.floor(baseInterval / 2)) : baseInterval;
                         if (e.shootTimer > interval) {
                             e.shootTimer = 0;
                             if (difficulty === 'impossible' || difficulty === 'birthday') e.hasShot = true;
@@ -3241,6 +4068,7 @@ const __nelaCode = () => __s.d(__s.nela);
             }
 
             if (lvl.exit && checkCollision(player, lvl.exit)) {
+                recordLevelTime();
                 const next = getNextLevelIndex();
                 if (next === -1) startVictoryAnim();
                 else {
@@ -3277,6 +4105,7 @@ const __nelaCode = () => __s.d(__s.nela);
                 tp.x += tp.vx; tp.y += tp.vy; tp.vy += 0.04; tp.life--;
                 if (tp.life <= 0) trailParticles.splice(i, 1);
             }
+            if (onlineCoop.active && onlineCoop.role === 'host') sendOnlineCoopState(gameState !== STATES.PLAYING);
         }
 
         function takeDamage(amount) {
@@ -3488,6 +4317,7 @@ const __nelaCode = () => __s.d(__s.nela);
             });
 
             if (player.invulnerableTimer % 4 < 2) drawPlayer();
+            if (onlineCoop.active && coopPartner) drawCharAt(coopPartner, 'dilo');
 
             ctx.restore();
             ctx.restore();
@@ -4761,6 +5591,8 @@ const __nelaCode = () => __s.d(__s.nela);
         updateUI();
         updateMiniKeyUI();
         updateUI();
+        updateAuthUI();
+        restoreCloudSaveIfLoggedIn();
         requestAnimationFrame(gameLoop);
     </script>
 </body>
